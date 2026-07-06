@@ -211,3 +211,104 @@ class DecisionInformationExplainer:
         self.lambda_fidelity = original_lambda
         self.loss_fn.lambda_fidelity = original_lambda
         return results
+    
+    def explain_text(
+        self,
+        texts,
+        bert_wrapper,
+        steps: int = 300,
+        lr: float = 0.1,
+        temperature: float = 1.0,
+        init_logits: float = -2.0,
+        baseline_mode: str = "mask_token",
+        anneal: bool = True,
+        verbose: bool = False,
+        seed: int = None
+    ) -> "DecisionInformationExplanation":
+        from .nlp.token_mask import GumbelSoftmaxTokenMask
+
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        # ── 1. Embeddings AVANT les 12 couches (pré-encodeur) ────────────────
+        embeddings, attention_mask, input_ids = bert_wrapper.get_input_embeddings(texts)
+        embeddings = embeddings.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        B, T, D = embeddings.shape
+
+        # ── 2. Baseline, MÊME étage pré-encodeur ─────────────────────────────
+        if baseline_mode == "mask_token":
+            mask_id = bert_wrapper.tokenizer.mask_token_id
+            mask_ids = torch.full((B, T), mask_id, device=self.device)
+            with torch.no_grad():
+                baseline = bert_wrapper.model.embeddings(input_ids=mask_ids)
+        else:
+            baseline = torch.zeros_like(embeddings)
+
+        # ── 3. Prédiction originale — modèle complet (12 couches + tête) ─────
+        with torch.no_grad():
+            y_orig = self.model(embeddings, attention_mask)
+
+        # ── 4. TokenMask ──────────────────────────────────────────────────────
+        token_mask_module = GumbelSoftmaxTokenMask(
+            seq_len=T, init_logits=init_logits, temperature=temperature
+        ).to(self.device)
+        optimizer = torch.optim.Adam(token_mask_module.parameters(), lr=lr)
+        history = {"loss": [], "info": [], "fidelity": []}
+
+        # ── 5. Boucle d'optimisation ──────────────────────────────────────────
+        for step in range(steps):
+            optimizer.zero_grad()
+
+            if anneal:
+                tau = max(2.0 / 3.0, temperature * (0.995 ** step))
+                token_mask_module.temperature = tau
+
+            masked_emb, t_mask = token_mask_module(
+                embeddings, baseline, training=True, attention_mask=attention_mask
+            )
+
+            y_masked = self.model(masked_emb, attention_mask)
+
+            loss, info_loss, fidelity_loss = self.loss_fn(
+                t_mask, y_orig, y_masked, modality="text"
+            )
+            loss.backward()
+            optimizer.step()
+
+            history["loss"].append(loss.item())
+            history["info"].append(info_loss.item())
+            history["fidelity"].append(fidelity_loss.item())
+
+            if verbose and step % 50 == 0:
+                print(f"[Text {step:3d}] loss={loss.item():.4f} "
+                    f"info={info_loss.item():.3f} fidelity={fidelity_loss.item():.3f} "
+                    f"τ={token_mask_module.temperature:.3f}")
+
+            if step > 100 and len(history["loss"]) > 20:
+                recent = sum(history["loss"][-20:]) / 20
+                prev = sum(history["loss"][-40:-20]) / 20
+                if abs(recent - prev) < 1e-5:
+                    if verbose:
+                        print(f"Early stopping at step {step}")
+                    break
+
+        # ── 6. Masque final (une seule évaluation, réutilisée) ───────────────
+        with torch.no_grad():
+            masked_emb_final, final_token_mask = token_mask_module(
+                embeddings, baseline, training=False, attention_mask=attention_mask
+            )
+            mask_probs = token_mask_module.get_mask_probs()
+
+            y_final = self.model(masked_emb_final, attention_mask)
+            fidelity = calculate_fidelity(y_orig, y_final, self.task)
+            density = final_token_mask.mean().item()
+
+        explanation = DecisionInformationExplanation(
+            mask=final_token_mask.cpu(),
+            mask_probs=mask_probs.cpu(),
+            fidelity=fidelity,
+            info_score=density
+        )
+        explanation.history = history
+        return explanation

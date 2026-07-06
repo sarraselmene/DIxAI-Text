@@ -67,38 +67,71 @@ class DecisionInformationLoss(nn.Module):
 
         return tv
 
+    def _contiguity_penalty(self, token_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Pénalité de contiguïté séquentielle pour le texte (Verrou 2).
 
-    def forward(self, mask: torch.Tensor, y_pred_original: torch.Tensor, y_pred_masked: torch.Tensor, x: Optional[torch.Tensor] = None, mine_estimator: Optional[nn.Module] = None):
-        """
+        Remplace la TV loss 2D (images) par une pénalité 1D (séquences).
+
+        Principe :
+            La TV loss 2D pénalise |M[i,j] - M[i+1,j]| + |M[i,j] - M[i,j+1]|
+            pour encourager des régions spatiales continues.
+
+            Pour le texte, on veut des SPANS contigus :
+                "vraiment excellent" ← bien
+                "vraiment ... excellent" ← pénalisé
+
+            Formule : Σ_t |m_t - m_{t-1}|
+            Plus cette somme est grande → plus le masque est "épars/fragmenté"
+            On veut la minimiser.
+
         Args:
-            mask: The generated mask [Batch, Dim] or [Dim].
-            y_pred_original: Predictions of f(X) (logits). 
-            y_pred_masked: Predictions of f(Z) (logits).
-            x: Optional original input for Edge-Aware TV / MINE.
-            mine_estimator: Optional MINE model to compute MI instead of mask mean.
+            token_mask : (B, T) — importance par token
+
+        Returns:
+            pénalité scalaire
         """
+        if token_mask.dim() == 1:
+            token_mask = token_mask.unsqueeze(0)
+
+        # Différence entre tokens consécutifs
+        # (B, T-1)
+        diff = token_mask[:, 1:] - token_mask[:, :-1]
+
+        # Valeur absolue et moyenne
+        penalty = diff.abs().mean()
+
+        return penalty
+    def forward(
+        self,
+        mask: torch.Tensor,
+        y_pred_original: torch.Tensor,
+        y_pred_masked: torch.Tensor,
+        x: Optional[torch.Tensor] = None,
+        mine_estimator: Optional[nn.Module] = None,
+        modality: str = "image"   # ← NOUVEAU PARAMÈTRE
+    ):
         # 1. Information Term: I(X; Z)
         if mine_estimator is not None and x is not None:
-            # Reshape inputs for MINE (Batch, Dim)
             x_flat = x.view(x.size(0), -1)
-            # Z = X * M for MINE input (assuming B=0 for MI complexity)
             z_flat = (x * mask).view(x.size(0), -1)
             info_loss = mine_estimator.compute_mi(x_flat, z_flat)
         else:
             info_loss = mask.mean()
-        
-        # 2. Fidelity Term: E[dist(f(X), f(Z))]
+
+        # 2. Fidelity Term
         if self.task == 'classification':
-             # ModelWrapper already returns log-probabilities
-             fidelity_loss = self.fidelity_criterion(y_pred_masked, y_pred_original)
+            fidelity_loss = self.fidelity_criterion(y_pred_masked, y_pred_original)
         else:
             fidelity_loss = self.fidelity_criterion(y_pred_masked, y_pred_original)
-            
-        # 3. Spatial Regularization (TV)
-        tv_loss = self._total_variation(mask, x)
-            
-        # Total Lagrangian
+
+        # 3. Régularisation spatiale — TV pour images, contiguïté pour texte
+        if modality == "text":
+            tv_loss = self._contiguity_penalty(mask)
+        else:
+            tv_loss = self._total_variation(mask, x)
+
         total_loss = info_loss + self.lambda_fidelity * fidelity_loss + self.lambda_tv * tv_loss
-        
+
         return total_loss, info_loss, fidelity_loss
 
