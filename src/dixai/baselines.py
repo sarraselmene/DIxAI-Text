@@ -1,6 +1,6 @@
 """
 RISE: Randomized Input Sampling for Explanation of Black-box Models
-
+a checker encore 
 Implementation based on:
 Petsiuk, V., Das, A., & Saenko, K. (2018). RISE: Randomized Input Sampling for Explanation of Black-box Models.
 British Machine Vision Conference (BMVC).
