@@ -35,3 +35,7 @@ dev = [
     "isort",
     "flake8",
 ]
+nlp = [
+    "transformers>=4.30.0",
+    "datasets",
+]
