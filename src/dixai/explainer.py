@@ -216,10 +216,11 @@ class DecisionInformationExplainer:
         self,
         texts,
         bert_wrapper,
+        sentiment_model,
         steps: int = 300,
-        lr: float = 0.1,
-        temperature: float = 1.0,
-        init_logits: float = -2.0,
+        lr: float = 0.01,
+        temperature: float = 2.0,
+        init_logits: float = 2.0,
         baseline_mode: str = "mask_token",
         anneal: bool = True,
         verbose: bool = False,
@@ -231,7 +232,8 @@ class DecisionInformationExplainer:
             torch.manual_seed(seed)
 
         # ── 1. Embeddings AVANT les 12 couches (pré-encodeur) ────────────────
-        embeddings, attention_mask, input_ids = bert_wrapper.get_input_embeddings(texts)
+        
+        embeddings, attention_mask, input_ids, token_type_ids = bert_wrapper.get_input_embeddings(texts)
         embeddings = embeddings.to(self.device)
         attention_mask = attention_mask.to(self.device)
         B, T, D = embeddings.shape
@@ -247,7 +249,7 @@ class DecisionInformationExplainer:
 
         # ── 3. Prédiction originale — modèle complet (12 couches + tête) ─────
         with torch.no_grad():
-            y_orig = self.model(embeddings, attention_mask)
+            y_orig = sentiment_model.forward_from_embeddings(embeddings, attention_mask)
 
         # ── 4. TokenMask ──────────────────────────────────────────────────────
         token_mask_module = GumbelSoftmaxTokenMask(
@@ -268,7 +270,7 @@ class DecisionInformationExplainer:
                 embeddings, baseline, training=True, attention_mask=attention_mask
             )
 
-            y_masked = self.model(masked_emb, attention_mask)
+            y_masked = sentiment_model.forward_from_embeddings(masked_emb, attention_mask)
 
             loss, info_loss, fidelity_loss = self.loss_fn(
                 t_mask, y_orig, y_masked, modality="text"
@@ -300,7 +302,7 @@ class DecisionInformationExplainer:
             )
             mask_probs = token_mask_module.get_mask_probs()
 
-            y_final = self.model(masked_emb_final, attention_mask)
+            y_final = sentiment_model.forward_from_embeddings(masked_emb_final, attention_mask)
             fidelity = calculate_fidelity(y_orig, y_final, self.task)
             density = final_token_mask.mean().item()
 
