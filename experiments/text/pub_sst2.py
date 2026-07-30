@@ -78,41 +78,43 @@ if not all_abl:
     abl_cfgs=[
         #("Full DIxAI-Text (mean_emb)","mean_embedding",30.0,2.0,True),
         #("Baseline=mask_token","mask_token",30.0,2.0,True),
-        ("Baseline=pad_token","pad_token",30.0,2.0,True),
+        #("Baseline=pad_token","pad_token",30.0,2.0,True),
         ("No Contiguity","mean_embedding",30.0,0.0,True),
         ("Strong Contiguity","mean_embedding",30.0,5.0,True),
         ("No Annealing","mean_embedding",30.0,2.0,False),
     ]
 
     for cfg_name,bl,lf,lc,an in abl_cfgs:
-        print(f"\n  {cfg_name}");sys.stdout.flush()
-        t0=time.time()
-        for seed in SEEDS:
-            torch.manual_seed(seed);np.random.seed(seed)
-            exs=load_sst2(limit=N,split="validation",seed=seed)
-            ex=TextDecisionInformationExplainer(mdl,tok,lambda_fidelity=lf,lambda_contiguity=lc,baseline_type=bl,device=device)
-            bp=TextBaselineProvider(mdl,tok,bl);bv=bp.get_baseline_vector(device=device)
-            fs,ss,cs,su,co=[],[],[],[],[]
-            for e in exs:
-                ep=ex.explain(e.text,steps=STEPS,lr=0.1,init_logits=-1.0,seed=seed)
-                er=compute_eraser_scores(mdl,tok,e.text,ep.mask_probs,bv,device=device,strategy="threshold",threshold=0.5)
-                fs.append(ep.fidelity_score);ss.append(ep.sparsity_score);cs.append(ep.contiguity_score)
-                su.append(er.sufficiency);co.append(er.comprehensiveness)
-            all_abl.append({"config":cfg_name,"seed":seed,"n":len(fs),
-                "fid_m":float(np.mean(fs)),"fid_s":float(np.std(fs)),
-                "spar_m":float(np.mean(ss)),"spar_s":float(np.std(ss)),
-                "cont_m":float(np.mean(cs)),"cont_s":float(np.std(cs)),
-                "suff_m":float(np.mean(su)),"suff_s":float(np.std(su)),
-                "comp_m":float(np.mean(co)),"comp_s":float(np.std(co))})
-        dt=time.time()-t0
-        rows=[r for r in all_abl if r["config"]==cfg_name]
-        print(f"    {dt:.0f}s | Fid={np.mean([r['fid_m'] for r in rows]):.4f} | Suff={np.mean([r['suff_m'] for r in rows]):.4f} | Comp={np.mean([r['comp_m'] for r in rows]):.4f}");sys.stdout.flush()
+            print(f"\n  {cfg_name}");sys.stdout.flush()
+            t0=time.time()
+            for seed in SEEDS:
+                torch.manual_seed(seed);np.random.seed(seed)
+                exs=load_sst2(limit=N,split="validation",seed=seed)
+                ex=TextDecisionInformationExplainer(mdl,tok,lambda_fidelity=lf,lambda_contiguity=lc,baseline_type=bl,device=device)
+                bp=TextBaselineProvider(mdl,tok,bl);bv=bp.get_baseline_vector(device=device)
+                fs,ss,cs,su,co=[],[],[],[],[]
+                for e in exs:
+                    ep=ex.explain(e.text,steps=STEPS,lr=0.1,init_logits=-1.0,seed=seed,anneal=an)
+                    er=compute_eraser_scores(mdl,tok,e.text,ep.mask_probs,bv,device=device,strategy="threshold",threshold=0.5)
+                    fs.append(ep.fidelity_score);ss.append(ep.sparsity_score);cs.append(ep.contiguity_score)
+                    su.append(er.sufficiency);co.append(er.comprehensiveness)
+                all_abl.append({"config":cfg_name,"seed":seed,"n":len(fs),
+                    "fid_m":float(np.mean(fs)),"fid_s":float(np.std(fs)),
+                    "spar_m":float(np.mean(ss)),"spar_s":float(np.std(ss)),
+                    "cont_m":float(np.mean(cs)),"cont_s":float(np.std(cs)),
+                    "suff_m":float(np.mean(su)),"suff_s":float(np.std(su)),
+                    "comp_m":float(np.mean(co)),"comp_s":float(np.std(co))})
 
-    # Sauvegarder après ablation
-    with open(RESULTS_FILE,"w") as f:
-        json.dump({"ablation":all_abl,"comparison":{}},f,indent=2)
-    print(f"  Ablation sauvegardée dans {RESULTS_FILE}");sys.stdout.flush()
+                # --- Sauvegarde incrémentale après CHAQUE seed ---
+                with open(RESULTS_FILE,"w") as f:
+                    json.dump({"ablation":all_abl,"comparison":{}},f,indent=2)
 
+            dt=time.time()-t0
+            rows=[r for r in all_abl if r["config"]==cfg_name]
+            print(f"    {dt:.0f}s | Fid={np.mean([r['fid_m'] for r in rows]):.4f} | Suff={np.mean([r['suff_m'] for r in rows]):.4f} | Comp={np.mean([r['comp_m'] for r in rows]):.4f}");sys.stdout.flush()
+            print(f"    Sauvegardé après config '{cfg_name}'");sys.stdout.flush()
+
+    print(f"  Ablation complète sauvegardée dans {RESULTS_FILE}");sys.stdout.flush()
 # ============================================================
 # PARTIE 2 : COMPARISON (6 méthodes × N × 3 seeds)
 # ============================================================
