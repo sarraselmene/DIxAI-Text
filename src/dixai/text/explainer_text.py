@@ -85,6 +85,7 @@ class TextDecisionInformationExplainer:
         anneal: bool = True,
         verbose: bool = False,
         seed: Optional[int] = None,
+        debug: bool = False,
     ) -> TextExplanation:
         if seed is not None:
             torch.manual_seed(seed)
@@ -115,6 +116,24 @@ class TextDecisionInformationExplainer:
             y_orig = self._forward_from_embeds(x_embeds, attention_mask)
 
         baseline = self.baseline_provider.get_baseline(seq_len=T, device=self.device)  # (T, D)
+
+        # --- diagnostic : que donne le modèle si on remplace TOUT le contenu par la
+        # baseline (en gardant [CLS]/[SEP] réels) ? Sert à vérifier si le mask final
+        # apporte un vrai gain de fidélité par rapport à la baseline seule, ou si le
+        # collapse vers un mask quasi-nul est simplement dû au fait que la baseline
+        # suffit déjà à reproduire y_orig (auquel cas fidelity_loss n'a jamais de
+        # vrai signal à exploiter).
+        if debug:
+            with torch.no_grad():
+                z_null = baseline.unsqueeze(0).clone()  # (1, T, D)
+                stm_bool = special_tokens_mask[0].bool()
+                z_null[:, stm_bool] = x_embeds[:, stm_bool]
+                y_null = self._forward_from_embeds(z_null, attention_mask)
+                kl_null = F.kl_div(y_null, y_orig, reduction="batchmean", log_target=True).item()
+                print(f"[diag] KL(y_orig, y_null_baseline) = {kl_null:.4f}")
+                print(f"[diag] y_orig probs : {y_orig.exp().tolist()}")
+                print(f"[diag] y_null probs : {y_null.exp().tolist()}")
+        # --- fin diagnostic ---
 
         mask_module = TokenGumbelSoftmaxMask(
             seq_len=T, temperature=temperature, init_logits=init_logits

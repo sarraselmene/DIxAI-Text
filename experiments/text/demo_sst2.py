@@ -54,7 +54,8 @@ def main():
             device="cpu",
         )
 
-        explanation = explainer.explain(text, steps=200, lr=0.2, verbose=False, seed=0)
+        #explanation = explainer.explain(text, steps=200, lr=0.2, verbose=False, seed=0)
+        explanation = explainer.explain(text, steps=200, lr=0.2, verbose=False, seed=0, debug=True)
         print(explanation)
         print("Tokens sélectionnés :", explanation.top_tokens(threshold=0.5))
 

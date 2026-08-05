@@ -98,3 +98,6 @@ latex/
 *.synctex.gz
 *.fls
 *.fdb_latexmk
+echo "ven_dixi/" >> .gitignore
+echo ".DS_Store" >> .gitignore
+echo "**/ .DS_Store" >> .gitignore 
