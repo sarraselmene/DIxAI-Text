@@ -101,3 +101,14 @@ latex/
 echo "ven_dixi/" >> .gitignore
 echo ".DS_Store" >> .gitignore
 echo "**/ .DS_Store" >> .gitignore 
+# Python virtual env
+ven_dixi/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
