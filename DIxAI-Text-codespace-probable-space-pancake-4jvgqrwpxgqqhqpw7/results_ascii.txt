@@ -1,0 +1,32 @@
+--- Running Faithfulness Experiment (Insertion/Deletion) on adult ---
+Epoch 1, Loss: 0.3359
+Epoch 2, Loss: 0.3141
+Epoch 3, Loss: 0.3092
+Epoch 4, Loss: 0.3061
+Epoch 5, Loss: 0.3029
+Epoch 6, Loss: 0.3000
+Epoch 7, Loss: 0.2967
+Epoch 8, Loss: 0.2940
+Epoch 9, Loss: 0.2909
+Epoch 10, Loss: 0.2879
+Evaluating DIXAI...
+Evaluating SHAP...
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+ERROR: SHAP final mismatch. attr=torch.Size([2]), x=torch.Size([105]). Using zeros.
+Evaluating Saliency...
+
+--- Faithfulness Results Summary ---
+DIXAI: Ins AUC=0.919, Del AUC=0.528
+SHAP: Ins AUC=0.843, Del AUC=0.674
+Saliency: Ins AUC=0.864, Del AUC=0.673
+------------------------------------
+
+Result saved to experiments/results/exp2_faithfulness_adult.png

@@ -1,0 +1,44 @@
+python : Traceback (most recent call last):
+Au caract?re Ligne:1 : 1
++ python experiments\benchmark\bench_mnist.py 
+2>&1 | Out-File -FilePath ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~
+    + CategoryInfo          : NotSpecified: ( 
+   Traceback (most recent call last)::String  
+  ) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandEr 
+   ror
+ 
+  File "D:\Haythem\Temp\AAAA-New Research\deci
+sion_information_xai\experiments\benchmark\ben
+ch_mnist.py", line 5, in <module>
+    from dixai.explainer import 
+DecisionInformationExplainer
+  File "d:\Haythem\Temp\AAAA-New Research\deci
+sion_information_xai\src\dixai\__init__.py", 
+line 7, in <module>
+    from .explainer import 
+DecisionInformationExplainer, 
+DecisionInformationExplanation
+  File "d:\Haythem\Temp\AAAA-New Research\deci
+sion_information_xai\src\dixai\explainer.py", 
+line 6, in <module>
+    from .masks import GumbelSoftmaxMask
+  File "d:\Haythem\Temp\AAAA-New Research\deci
+sion_information_xai\src\dixai\masks.py", 
+line 6, in <module>
+    class GumbelSoftmaxMask(nn.Module):
+    ...<44 lines>...
+            return 
+torch.sigmoid(self.mask_logits)
+  File "d:\Haythem\Temp\AAAA-New Research\deci
+sion_information_xai\src\dixai\masks.py", 
+line 23, in GumbelSoftmaxMask
+    def forward(self, x: torch.Tensor, 
+training: bool = True, baseline: 
+Optional[torch.Tensor] = None) -> 
+torch.Tensor:
+                                              
+                          ^^^^^^^^
+NameError: name 'Optional' is not defined

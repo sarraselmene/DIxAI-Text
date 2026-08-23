@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dixai"
+version = "0.1.0"
+description = "Decision-Information Explainable AI Framework"
+authors = [
+  { name="Haythem Ghazouani", email="haythem.ghazouani@enicar.u-carthage.tn" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy",
+    "torch>=2.0.0",
+    "scipy",
+    "scikit-learn",
+    "pandas",
+    "tqdm",
+    "matplotlib",
+    "torchvision",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+    "flake8",
+]
+nlp = [
+    "transformers>=4.30.0",
+    "datasets",
+]
